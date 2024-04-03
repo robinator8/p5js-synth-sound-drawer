@@ -425,6 +425,8 @@ class Piano {
           waves[selectedWave].canvas.periodicWave,
         );
         this.playingNote = note;
+      } else if (!note && note != this.playingNote) {
+        this.playingNote = undefined;
       }
     } else {
       this.playingNote = undefined;
@@ -714,9 +716,9 @@ class WaveCanvas {
         this.graphic.noStroke();
         this.graphic.fill(255, 255, 255, 255);
         this.graphic.rect(
-          min(this.prevPenX, penX) - 1, //- extra / 4,
+          min(this.prevPenX, penX) - 1,
           0,
-          abs(penX - this.prevPenX) + 1, // + extra / 2,
+          abs(penX - this.prevPenX) + 1,
           this.h,
         );
       }
@@ -826,10 +828,10 @@ class WaveCanvas {
     for (let i = 0; i < d; i++) {
       for (let j = 0; j < d; j++) {
         let index = (x * d + i + (y * d + j) * graphics.width * d) * 4;
-        r += graphics.pixels[index]; // = red(col);
-        g += graphics.pixels[index + 1]; // = green(col);
-        b += graphics.pixels[index + 2]; // = blue(col);
-        a += graphics.pixels[index + 3]; // = alpha(col);
+        r += graphics.pixels[index];
+        g += graphics.pixels[index + 1];
+        b += graphics.pixels[index + 2];
+        a += graphics.pixels[index + 3];
       }
     }
     return color((r / d) * d, (g / d) * d, (b / d) * d, (a / d) * d);
@@ -856,7 +858,6 @@ class WaveUI {
   }
 
   draw() {
-    // this.graphic.background(255, 255, 255);
     image(this.graphic, this.x, this.y);
   }
 }
@@ -871,22 +872,15 @@ class PitchCanvas {
     this.y = y;
     this.w = w;
     this.h = h;
-    // this.color = color(hex);
     this.changed = false;
-    // noStroke();
     this.lines = [];
     this.background = createGraphics(w, h);
     this.background.fill(255, 255, 255, 255);
     this.background.noStroke();
     this.background.rect(0, 0, w, h);
 
-    // this.graphic.strokeWeight(5);
-    // this.graphic.stroke(this.color);
-    // this.graphic.line(0, this.h / 2, this.w, this.h / 2);
-    // this.demoGraphic = createGraphics(w, h);
     this.d = pixelDensity();
 
-    // console.log("draw canvas setup");
     // Filters used to smooth position and pressure jitter
     xFilter = new OneEuroFilter(60, minCutoff, beta, 1.0);
     yFilter = new OneEuroFilter(60, minCutoff, beta, 1.0);
@@ -915,14 +909,12 @@ class PitchCanvas {
 
   newLine(x, y) {
     const graphic = createGraphics(this.w, this.h);
-    // graphic.fill(255, 255, 255, 255);
-    // graphic.noStroke();
-    // graphic.rect(0, 0, this.w, this.h);
     this.line = {
       graphic: graphic,
       wave: selectedWave,
       dir: undefined,
       width: 0,
+      height: 0,
       minX: x,
       maxX: x,
       minY: y,
@@ -957,12 +949,9 @@ class PitchCanvas {
         (penX > this.prevPenX && this.line.dir == -1) ||
         (penX < this.prevPenX && this.line.dir == 1)
       ) {
-        if (this.line.width < 5) {
-          // console.log("wrong long detected");
+        if (this.line.width < 5 && this.line.height < 5) {
           this.undo();
         }
-        // console.log("draws", this.line.width);
-        // console.log("direction switched");
         this.newLine(penX, penY);
       }
 
@@ -983,6 +972,7 @@ class PitchCanvas {
       this.line.maxX = max(penX, this.line.maxX);
       this.line.minY = min(penY, this.line.minY);
       this.line.maxY = max(penY, this.line.maxY);
+      this.line.height += this.line.maxY - this.line.minY;
 
       // Smooth out the pressure
       pressure = pFilter.filter(pressure, millis());
@@ -996,18 +986,6 @@ class PitchCanvas {
       // The bigger the distance the more ellipses
       // will be drawn to fill in the empty space
       let inBetween = (d / min(brushSize, this.prevBrushSize)) * brushDensity;
-
-      // fill white around
-      // {
-      //   this.graphic.noStroke();
-      //   this.graphic.fill(255, 255, 255, 255);
-      //   this.graphic.rect(
-      //     min(this.prevPenX, penX) - 1, //- extra / 4,
-      //     0,
-      //     abs(penX - this.prevPenX) + 1, // + extra / 2,
-      //     this.h,
-      //   );
-      // }
 
       // Add ellipses to fill in the space
       // between samples of the pen position
@@ -1046,8 +1024,6 @@ class PitchCanvas {
     for (let i = 0; i < this.lines.length; ++i) {
       image(this.lines[i].graphic, this.x, this.y);
     }
-    // image(this.graphic, this.x, this.y);
-    // image(this.demoGraphic, this.x, this.y);
   }
 
   createLineAudio(line) {
@@ -1085,56 +1061,21 @@ class PitchCanvas {
       }
     }
     line.graphic.updatePixels();
-    // this.demoGraphic.clear();
-    // this.demoGraphic.noStroke();
-    // this.demoGraphic.fill(this.color, 50);
     for (let i = 0; i < arr.length; ++i) {
       let j = arr[i];
       if (j != 0) {
         let y = (1 - j) * this.h;
-        if (y > maxY || y < minY) {
-          // console.log(i, j, )
-        }
         const x = (this.w * i) / arr.length;
         line.graphic.ellipse(x, y, 5);
       }
     }
 
     for (let i = 0; i < arr.length; ++i) {
-      arr[i] *= 500;
+      arr[i] = pctToHz(arr[i], 0);
     }
 
     console.log("post-scaled-arr", arr);
     line.freqArray = upsampleArray(arr, SECONDS * sampleRate, 0);
-    // const freqArray = upsampleArray(arr, 8 * sampleRate, 0);
-    // let audio = generateVariableWave(
-    //   freqArray,
-    //   waves[line.wave].canvas.timeDomain,
-    //   sampleRate,
-    // );
-
-    // line.timeDomain = arr;
-    // this.timeDomain = arr;
-    // this.periodicWave = timeDomainToPeriodicWave(arr, -2);
-    // console.log(line.timeDomain);
-    // console.log(this.periodicWave);
-    // line.graphic.updatePixels();
-    // this.demoGraphic.clear();
-    // this.demoGraphic.noStroke();
-    // this.demoGraphic.fill(this.color, 50);
-    // for (let i = 0; i < arr.length; ++i) {
-    //   let j = arr[i];
-    //   if (j != 0) {
-    //     let y = (1 - j) * this.h;
-    //     if (y > maxY || y < minY) {
-    //       // console.log(i, j, )
-    //     }
-    //     const x = (this.w * i) / arr.length;
-    //     line.graphic.ellipse(x, y, 5);
-    //   }
-    // }
-
-    return true;
   }
 
   doStuff() {
@@ -1143,83 +1084,49 @@ class PitchCanvas {
 
     for (let i = 0; i < this.lines.length; ++i) {
       const line = this.lines[i];
-      if (!line.audio) {
-        const audio = this.createLineAudio(line);
-        console.log(audio);
-        line.audio = audio;
+      if (!line.freqArray) {
+        this.createLineAudio(line);
       }
     }
-
-    // this.graphic.loadPixels();
-    // console.log("do stuff", this.w);
-    // let arr = new Array(floor(this.w)).fill(-2);
-    // for (let x = 0; x < this.w; ++x) {
-    //   let count = 0;
-    //   let indexSum = 0;
-    //   for (let y = 0; y < this.h; ++y) {
-    //     const pixel = this.getPixel(x, y);
-    //     if (isNaN(red(pixel)) || isNaN(green(pixel)) || isNaN(blue(pixel))) {
-    //       // do nothing
-    //     } else if (
-    //       red(pixel) != 255 ||
-    //       green(pixel) != 255 ||
-    //       blue(pixel) != 255
-    //     ) {
-    //       count += 1;
-    //       indexSum += y;
-    //     }
-    //   }
-    //   if (count > 0) {
-    //     arr[x] = ((2 * indexSum) / count / this.h - 1) * -1;
-    //   }
-    // }
-    // arr = upsampleArray(arr, 4096, -2);
-    // this.timeDomain = arr;
-    // this.periodicWave = timeDomainToPeriodicWave(arr, -2);
-    // console.log(this.timeDomain);
-    // console.log(this.periodicWave);
-    // this.graphic.updatePixels();
-    // this.demoGraphic.clear();
-    // this.demoGraphic.noStroke();
-    // // this.demoGraphic.fill(this.color, 50);
-    // for (let i = 0; i < arr.length; ++i) {
-    //   let j = arr[i];
-    //   if (j != -2) {
-    //     let y = ((j * -1 + 1) * this.h) / 2;
-    //     const x = (this.w * i) / arr.length;
-    //     this.graphic.ellipse(x, y, 5);
-    //   }
-    // }
   }
 
   play() {
-    console.log("play");
-    const buffer = new AudioBuffer({
-      length: sampleRate * SECONDS,
-      sampleRate: sampleRate,
-      channelCount: 1,
-    });
-    const nowBuffering = buffer.getChannelData(0);
-    console.log("now buffering", nowBuffering);
-    for (let i = 0; i < this.lines.length; ++i) {
-      const freqArray = this.lines[i].freqArray;
-      const wave = waves[this.lines[i].wave].canvas.timeDomain;
-      if (!wave) {
-        console.log("no wave", i);
-        continue;
+    if (!this.isPlaying) {
+      this.isPlaying = true;
+      const buffer = new AudioBuffer({
+        length: sampleRate * SECONDS,
+        sampleRate: sampleRate,
+        channelCount: 1,
+      });
+      const nowBuffering = buffer.getChannelData(0);
+      for (let i = 0; i < this.lines.length; ++i) {
+        const freqArray = this.lines[i].freqArray;
+        const wave = waves[this.lines[i].wave].canvas.timeDomain;
+        if (!wave) {
+          continue;
+        }
+        const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
+        for (let j = 0; j < buffer.length; ++j) {
+          nowBuffering[j] += lineBuffer[j];
+        }
       }
-      console.log("yes wave", i, wave);
-      const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
-      console.log("lineBuffer", i, lineBuffer);
-      for (let j = 0; j < buffer.length; ++j) {
-        nowBuffering[j] += lineBuffer[j];
-      }
+      const source = new AudioBufferSourceNode(audioContext);
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      this.startTime = audioContext.currentTime;
+      source.start();
+      source.onended = (event) => {
+        console.log(event);
+        source.disconnect(audioContext.destination);
+        this.isPlaying = false;
+      };
     }
-    const source = new AudioBufferSourceNode(audioContext);
-    console.log("source", source);
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-    source.start();
+  }
+
+  getCurrentTime() {
+    if (this.isPlaying) {
+      return audioContext.currentTime - this.startTime;
+    }
   }
 
   setPixel(x, y, col, graphics) {
@@ -1244,10 +1151,10 @@ class PitchCanvas {
     for (let i = 0; i < d; i++) {
       for (let j = 0; j < d; j++) {
         let index = (x * d + i + (y * d + j) * graphics.width * d) * 4;
-        r += graphics.pixels[index]; // = red(col);
-        g += graphics.pixels[index + 1]; // = green(col);
-        b += graphics.pixels[index + 2]; // = blue(col);
-        a += graphics.pixels[index + 3]; // = alpha(col);
+        r += graphics.pixels[index];
+        g += graphics.pixels[index + 1];
+        b += graphics.pixels[index + 2];
+        a += graphics.pixels[index + 3];
       }
     }
     return color((r / d) * d, (g / d) * d, (b / d) * d, (a / d) * d);
@@ -1266,85 +1173,71 @@ class PitchUI {
     this.w = w;
     this.h = h;
     this.lastNote = 0; // so it will init
-    // this.graphic.line(0, this.h / 2, this.w, this.h / 2);
-    // this.graphic.text("1", this.w / 2 + 10, 20);
-    // this.graphic.text("-1", this.w / 2 + 10, this.h - 10);
-    this.graphic.fill(150, 150, 150);
-    this.graphic.stroke(150, 150, 150);
+  }
+
+  drawFreqLine(freq, color) {
+    this.graphic.stroke(color);
+    const y = (1 - hzToPct(freq)) * this.h;
+    this.graphic.line(0, y, this.w, y);
+  }
+
+  draw() {
+    this.graphic.clear();
+
+    for (let i = 0; i < SECONDS; ++i) {
+      this.graphic.stroke(220, 220, 220);
+      this.graphic.line(
+        ((i + 0.5) * this.w) / SECONDS,
+        0,
+        ((i + 0.5) * this.w) / SECONDS,
+        this.h,
+      );
+    }
+
+    let note = piano1.playingNote || piano2.playingNote;
+    this.lastNote = note;
+    WHITE_NOTES.map((note) => {
+      note.freq.map((freq) => {
+        this.drawFreqLine(freq, color(150, 150, 150));
+      });
+    });
+
+    BLACK_NOTES.map((note) => {
+      if (note) {
+        note.freq.map((freq) => {
+          this.drawFreqLine(freq, color(150, 150, 150));
+        });
+      }
+    });
+
     for (let i = 1; i < SECONDS; ++i) {
+      this.graphic.stroke(150, 150, 150);
       this.graphic.line(
         (i * this.w) / SECONDS,
         0,
         (i * this.w) / SECONDS,
         this.h,
       );
-    }
-  }
-
-  drawFreqLine(freq, color) {
-    this.graphic.stroke(color);
-    this.graphic.line(
-      0,
-      this.h - (this.h * freq) / 500,
-      this.w,
-      this.h - (this.h * freq) / 500,
-    );
-  }
-
-  draw() {
-    let note = piano1.playingNote || piano2.playingNote;
-    if (this.lastNote != note) {
-      this.lastNote = note;
-      WHITE_NOTES.map((note) => {
-        note.freq.map((freq) => {
-          this.drawFreqLine(freq, color(150, 150, 150));
-        });
-      });
-
-      console.log("BLACKNOTES", BLACK_NOTES);
-      BLACK_NOTES.map((note) => {
-        if (note) {
-          note.freq.map((freq) => {
-            this.drawFreqLine(freq, color(150, 150, 150));
-          });
-        }
-      });
-
-      // concat(WHITE_NOTES, BLACK_NOTES).map((note) => {
-      //   note.freq.map((freq) => {
-      //     this.graphic.line(
-      //       0,
-      //       this.h - (this.h * freq) / 500,
-      //       this.w,
-      //       this.h - (this.h * freq) / 500,
-      //     );
-      //   });
-      // });
-      // for (let i = 0; i < WHITE_NOTES[0].freq.length; ++i) {
-      //   for (let j = 0; j < WHITE_NOTES.length; ++j) {
-      //     const freq = WHITE_NOTES[j].freq[i];
-      //   }
-      //   for (let j = 0; j < BLACK_NOTES.length; ++j) {
-      //     const freq = BLACK_NOTES[j].freq[i];
-      //     this.graphic.line(
-      //       0,
-      //       this.h - (this.h * freq) / 500,
-      //       this.w,
-      //       this.h - (this.h * freq) / 500,
-      //     );
-      //   }
-      // }
-
-      if (note) {
-        note.freq.map((freq) => {
-          this.drawFreqLine(freq, color(0, 0, 0));
-        });
-      }
-
-      console.log("NOTE", note);
+      this.graphic.fill(0, 0, 0);
+      this.graphic.stroke(255, 255, 255);
+      this.graphic.textSize(12);
+      this.graphic.textStyle("bold");
+      this.graphic.textAlign("center", "center");
+      this.graphic.text(i + "s", (i * this.w) / SECONDS, this.h - 20);
     }
 
-    // this.graphic.background(255, 255, 255);
+    if (note) {
+      note.freq.map((freq) => {
+        this.drawFreqLine(freq, color(0, 0, 0));
+      });
+    }
+
+    this.graphic.stroke(0, 0, 0);
+    if (pitchCanvas.isPlaying) {
+      const x = (pitchCanvas.getCurrentTime() / SECONDS) * this.w;
+      this.graphic.line(x, 0, x, this.h);
+    }
+
     image(this.graphic, this.x, this.y);
   }
 }
@@ -1356,8 +1249,6 @@ class PitchUI {
 // Initializing Pressure.js
 // https://pressurejs.com/documentation.html
 function initPressure() {
-  //console.log("Attempting to initialize Pressure.js ");
-
   Pressure.set("#canvas", {
     start: function (event) {
       // this is called on force start
@@ -1374,7 +1265,6 @@ function initPressure() {
         console.log("Pressure.js initialized successfully");
         isPressureInit = true;
       }
-      //console.log(force);
       pressure = force;
     },
   });
@@ -1409,7 +1299,6 @@ function upsampleArray(inputArray, outputArrayLength, ignore) {
   const inputArrayLength = inputArray.length;
   const outputArray = new Array(outputArrayLength);
   for (let i = 0; i < outputArrayLength; i++) {
-    // outputArray[i] = inputArray[floor((i * inputArrayLength) / outputArrayLength)];
     const index = (i / (outputArrayLength - 1)) * (inputArrayLength - 1);
     const lowerIndex = Math.floor(index);
     const upperIndex = Math.ceil(index);
@@ -1442,12 +1331,7 @@ function timeDomainToPeriodicWave(input, ignore) {
     input = upsampleArray(input, 4096, { ignore: -2 });
   }
 
-  //   let fft = new p5.FFT();
-  // console.log("compute fft");
-  // const FFT = require("fft.js");
   const f = new FFTJS(4096);
-  // let input = new Array(4096);
-
   for (let i = 0; i < 4096; i++) {
     if (input[i] == ignore) {
       input[i] = 0;
@@ -1455,25 +1339,14 @@ function timeDomainToPeriodicWave(input, ignore) {
   }
 
   const out = f.createComplexArray();
-  // f.createComplxArray();
-  // console.log("FFTJS");
-  // const realInput = new Array(f.size);
-  // realInput.fill(0);
   f.realTransform(out, input);
   f.completeSpectrum(out);
 
   console.log("out", out);
   console.log("in", input);
 
-  // const f = new FFT();
-
-  // Perform FFT
-  //   const fftResult = fft(input);
-
-  // Extract real and imaginary parts
   const real = out.filter((_, i) => i % 2 == 0).map((c) => c / 4096);
   const imag = out.filter((_, i) => i % 2 == 1).map((c) => c / 4096);
-  // const imag = out.map((c) => c[1]);
 
   console.log(real, imag);
 
@@ -1490,16 +1363,6 @@ function timeDomainToPeriodicWave(input, ignore) {
   });
   console.log(wave, wavenorm);
   return wave;
-
-  // console.log(wave);
-  // let osc = new OscillatorNode(audioContext, {
-  //   type: "custom",
-  //   periodicWave: wave,
-  //   frequency: 200,
-  // });
-  // osc.start();
-  // osc.connect(audioContext.destination);
-  // return { real, imag };
 }
 
 function cumulativeSum(arr) {
@@ -1524,7 +1387,6 @@ function generateVariableWave(freqArray, waveArray, sampleRate) {
    * - An array representing the wave with the variable frequency and custom wave shape,
    *   with zero values where freqArray is zero.
    */
-  console.log("generateVariableWave", freqArray, waveArray, sampleRate);
   freqArray = freqArray.map((value) => (isNaN(value) ? 0 : value));
 
   // Calculate the time step between samples
@@ -1561,244 +1423,28 @@ function generateVariableWave(freqArray, waveArray, sampleRate) {
   return wave;
 }
 
-{
-  // function generate_variable_wave(freq_array, wave_array, sample_rate) {
-  //   /**
-  //    * Generates a wave with a variable frequency specified by freq_array and a custom wave shape specified by wave_array.
-  //    * When freq_array has zero values, the output wave will also be zero at those points.
-  //    * Parameters:
-  //    * - sample_rate: Sampling rate in samples per second.
-  //    * - freq_array: An array of frequencies in Hz for each point in time.
-  //    * - wave_array: An array containing values in the range [-1, 1] representing a single period of the wave shape.
-  //    * Returns:
-  //    * - An array representing the wave with the variable frequency and custom wave shape,
-  //    *   with zero values where freq_array is zero.
-  //    */
-  //   freq_array = freq_array.map((value) => (isNaN(value) ? 0 : value));
-  //   // Calculate the time step between samples
-  //   const dt = 1 / sample_rate;
-  //   // Calculate the instantaneous phase by integrating the frequency
-  //   // The cumulative sum of (2 * Math.PI * freq_array[i] * dt) approximates the integral of the frequency
-  //   const instantaneous_phase = [];
-  //   let phase_sum = 0;
-  //   for (let i = 0; i < freq_array.length; i++) {
-  //     phase_sum += 2 * Math.PI * freq_array[i] * dt;
-  //     instantaneous_phase.push(phase_sum);
-  //   }
-  //   // Calculate the number of samples in the output wave
-  //   const num_samples = freq_array.length;
-  //   // Generate the wave based on the instantaneous phase and the custom wave shape
-  //   const wave = new Array(num_samples).fill(0);
-  //   for (let i = 0; i < num_samples; i++) {
-  //     const phase = instantaneous_phase[i];
-  //     const index =
-  //       Math.floor((phase / (2 * Math.PI)) * wave_array.length) %
-  //       wave_array.length;
-  //     wave[i] = wave_array[index];
-  //   }
-  //   // Create a mask where the frequency is zero
-  //   const zero_mask = freq_array.map((value) => value === 0);
-  //   // Apply the mask to the wave, setting parts of the wave to zero where the frequency is zero
-  //   for (let i = 0; i < num_samples; i++) {
-  //     if (zero_mask[i]) {
-  //       wave[i] = 0;
-  //     }
-  //   }
-  //   return wave;
-  // }
-  // function generateVariableSineWave(freqArray, sampleRate) {
-  //   freqArray = freqArray.map((freq) => (isNaN(freq) ? 0 : freq));
-  //   // Calculate the time step between samples
-  //   const dt = 1 / sampleRate;
-  //   // Calculate the instantaneous phase by integrating the frequency
-  //   // The cumulative sum of (2 * Math.PI * freqArray * dt) approximates the integral of the frequency
-  //   const instantaneousPhase = freqArray.reduce((acc, freq) => {
-  //     const lastPhase = acc.length > 0 ? acc[acc.length - 1] : 0;
-  //     const phase = lastPhase + 2 * Math.PI * freq * dt;
-  //     acc.push(phase);
-  //     return acc;
-  //   }, []);
-  //   // Generate the sine wave based on the instantaneous phase
-  //   const sineWave = instantaneousPhase.map((phase) => Math.sin(phase));
-  //   // Create a mask where the frequency is zero
-  //   const zeroMask = freqArray.map((freq) => freq === 0);
-  //   // Apply the mask to the sine wave, setting parts of the wave to zero where the frequency is zero
-  //   zeroMask.forEach((isZero, index) => {
-  //     if (isZero) {
-  //       sineWave[index] = 0;
-  //     }
-  //   });
-  //   return sineWave;
-  // }
-  // class AudioPlayer {
-  //   constructor() {
-  //     this.initialized = false;
-  //   }
-  //   setup() {
-  //     this.bufferSize = 44100 * 0.5; // Half a second at 44100 samples per second
-  //     this.myArray = new Float32Array(this.bufferSize);
-  //     this.isPlaying = false;
-  //     this.startAudioContext();
-  //     this.initialized = true;
-  //   }
-  //   startAudioContext() {
-  //     console.log("trying to start 1");
-  //     if (getAudioContext().state !== "running") {
-  //       console.log("trying to start 2");
-  //       userStartAudio();
-  //       getAudioContext().resume();
-  //       getAudioContext().onstatechange = () =>
-  //         console.log(getAudioContext().state);
-  //       console.log(getAudioContext());
-  //     }
-  //     // startAudioContext();
-  //   }
-  //   loadNote(note) {
-  //     for (let i = 0; i < this.bufferSize; i++) {
-  //       // Generate a 440 Hz sine wave
-  //       let t = i / 44100; // current time in seconds
-  //       let f = 200;
-  //       // let idx = floor(t * f * arr.length) % arr.length;
-  //       // this.myArray[i] = arr[idx];
-  //       this.myArray[i] = Math.sin(2 * Math.PI * 200 * t);
-  //     }
-  //     // Create a p5.SoundFile and set its buffer to our generated waveform
-  //     this.mySound = new p5.SoundFile();
-  //     this.mySound.setBuffer([this.myArray]);
-  //     this.mySound.loopMode = true; // Set the sound file to loop
-  //   }
-  //   playNote(note) {
-  //     if (!this.isPlaying) {
-  //       this.loadNote(note);
-  //       console.log(getAudioContext());
-  //       console.log("play");
-  //       this.mySound.loop();
-  //       console.log(
-  //         "is playing ",
-  //         this.mySound.isPlaying(),
-  //         this.mySound.isLooping(),
-  //       );
-  //       // this.mySound.play(0, 1, 0.5); // play(soundTime, rate, amp, cueStart, duration)
-  //       // this.env.play(this.mySound); // Apply the envelope to the sound
-  //       this.isPlaying = true;
-  //       console.log("play note", note);
-  //     }
-  //   }
-  //   pause() {
-  //     if (this.isPlaying) {
-  //       console.log("pause");
-  //       this.mySound.stop();
-  //       this.isPlaying = false;
-  //     }
-  //   }
-  // }
-  // setup() {
-  //   if (!this.initialized) {
-  //     this.context = getAudioContext();
-  //     this.startAudioContext();
-  //     this.sampleRate = this.context.sampleRate;
-  //     this.bufferSize = this.sampleRate * 1; // Half a second at 44100 samples per second
-  //     this.myArray = new Float32Array(this.bufferSize);
-  //     console.log("array setup", this.myArray);
-  //     this.isPlaying = false;
-  //     this.initialized = true;
-  //   }
-  // }
-  // startAudioContext() {
-  //   // if ("webkitAudioContext" in window) {
-  //   //   console.log("webkitAudioContext");
-  //   //   var context = new webkitAudioContext();
-  //   //   console.log(context);
-  //   // }
-  //   console.log("trying to start 1");
-  //   if (this.context.state !== "running") {
-  //     this.context.onstatechange = () => console.log(getAudioContext().state);
-  //     console.log("trying to start 2");
-  //     userStartAudio(); // Ensure this is defined or use `getAudioContext().resume();`
-  //     this.context.resume();
-  //     console.log(this.context);
-  //   }
-  // }
-  // loadNote(freq) {
-  //   for (let i = 0; i < this.bufferSize; i++) {
-  //     let t = i / this.sampleRate; // Current time in seconds
-  //     this.myArray[i] = Math.sin(2 * Math.PI * freq * t);
-  //   }
-  //   function computeDFT(input) {
-  //     const N = 30;
-  //     let real = new Array(N).fill(0);
-  //     let imag = new Array(N).fill(0);
-  //     for (let k = 0; k < N; k++) {
-  //       // For each output element
-  //       for (let n = 0; n < N; n++) {
-  //         // For each input element
-  //         const phi = (2 * Math.PI * k * n) / N;
-  //         real[k] += input[n] * Math.cos(phi);
-  //         imag[k] -= input[n] * Math.sin(phi);
-  //       }
-  //     }
-  //     return { real, imag };
-  //   }
-  //   function computeFFT(_) {
-  //     //   let fft = new p5.FFT();
-  //     console.log("compute fft");
-  //     // const FFT = require("fft.js");
-  //     const f = new FFTJS(4096);
-  //     let input = new Array(4096);
-  //     for (let i = 0; i < 4096; i++) {
-  //       let t = i / 4096; // Current time in seconds
-  //       if (i < 2048) {
-  //         input[i] = 1;
-  //       } else {
-  //         input[i] = -1;
-  //       }
-  //       // input[i] = 1; // Math.sin(2 * Math.PI * t);
-  //     }
-  //     const out = f.createComplexArray();
-  //     // f.createComplxArray();
-  //     // console.log("FFTJS");
-  //     // const realInput = new Array(f.size);
-  //     // realInput.fill(0);
-  //     f.realTransform(out, input);
-  //     console.log("out", out);
-  //     console.log("in", input);
-  //     // const f = new FFT();
-  //     // Perform FFT
-  //     //   const fftResult = fft(input);
-  //     // Extract real and imaginary parts
-  //     const real = out.filter((c, i) => i % 2 == 0);
-  //     const imag = out.filter((c, i) => i % 2 == 1);
-  //     // const imag = out.map((c) => c[1]);
-  //     let wave = new PeriodicWave(audioContext, {
-  //       real: real,
-  //       imag: imag,
-  //     });
-  //     console.log(wave);
-  //     let osc = new OscillatorNode(audioContext, {
-  //       type: "custom",
-  //       periodicWave: wave,
-  //       frequency: 200,
-  //     });
-  //     osc.start();
-  //     osc.connect(audioContext.destination);
-  //     return { real, imag };
-  //   }
-  //   console.log("dft", computeDFT(this.myArray));
-  //   console.log("ffl", computeFFT(this.myArray));
-  //   console.log(this.myArray);
-  //   // Create a p5.SoundFile and set its buffer to our generated waveform
-  //   this.mySound = new p5.SoundFile();
-  //   console.log("array", this.myArray);
-  //   this.mySound.setBuffer([this.myArray]);
-  //   console.log(this.mySound.buffer);
-  //   // this.mySound.loopMode = true; // Note: There's no 'loopMode' property in p5.SoundFile. Use loop() method to loop the sound.
-  // }
-  // playNote(note) {
-  //   if (!this.isPlaying) {
-  //     this.loadNote(note);
-  //     this.mySound.loop(); // Start looping the sound
-  //     this.isPlaying = true;
-  //     console.log("play note", this.mySound.isPlaying(), note);
-  //   }
-  // }
+const MIN_FREQ = WHITE_NOTES[0].freq[2] - 1;
+const MAX_FREQ = WHITE_NOTES[0].freq[6] + 10;
+
+function pctToHz(pct, ignore) {
+  if (pct == ignore) {
+    return 0;
+  }
+  const result = MIN_FREQ * (MAX_FREQ / MIN_FREQ) ** pct;
+  return result;
 }
+
+function hzToPct(freq) {
+  return Math.log(freq / MIN_FREQ) / Math.log(MAX_FREQ / MIN_FREQ);
+}
+
+// function pctToHz(pct, ignore) {
+//   if (pct == ignore) {
+//     return 0;
+//   }
+//   return pct * 600 + 50;
+// }
+
+// function hzToPct(hz) {
+//   return (hz - 50) / 600;
+// }
