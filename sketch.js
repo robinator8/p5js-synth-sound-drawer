@@ -126,8 +126,8 @@ function setup() {
   {
     let x = windowWidth * 0.25;
     let y = 0;
-    let w = windowWidth * 0.5;
-    let h = windowHeight / 2 - 100;
+    let w = windowWidth * 0.25;
+    let h = windowHeight / 4;
     waves.forEach((wave) => {
       wave.canvas = new WaveCanvas(x, y, w, h, wave.color);
     });
@@ -135,26 +135,26 @@ function setup() {
   }
   {
     let x = windowWidth * 0.25;
-    let y = windowHeight / 2 - 100;
+    let y = windowHeight * 0.25;
     let w = windowWidth * 0.75;
-    let h = windowHeight / 2;
+    let h = windowHeight * 0.75 - 100;
     pitchCanvas = new PitchCanvas(x, y, w, h);
     pitchUI = new PitchUI(x, y, w, h);
   }
   waveSelector = new WaveSelector(0, 0, windowWidth * 0.25, windowHeight);
   piano1 = new Piano(
-    windowWidth * 0.75,
-    windowHeight / 4 - 50,
+    windowWidth * 0.5,
+    0,
     windowWidth * 0.25,
-    windowHeight / 4 - 50,
-    5,
+    windowHeight / 4,
+    4,
   );
   piano2 = new Piano(
     windowWidth * 0.75,
     0,
     windowWidth * 0.25,
-    windowHeight / 4 - 50,
-    4,
+    windowHeight / 4,
+    5,
   );
   controlPanel = new ControlPanel(
     windowWidth * 0.25,
