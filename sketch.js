@@ -657,7 +657,7 @@ class WaveCanvas {
     this.graphic.strokeWeight(5);
     this.graphic.stroke(this.color);
     this.graphic.line(0, this.h / 2, this.w, this.h / 2);
-    this.demoGraphic = createGraphics(w, h);
+    // this.demoGraphic = createGraphics(w, h);
     this.d = this.graphic.pixelDensity();
 
     console.log("draw canvas setup");
@@ -693,6 +693,7 @@ class WaveCanvas {
       initPressure();
     }
     if (isDrawing && this.mouseInside() && mouseIsPressed && audioStarted) {
+      // console.log("inside draw", isDrawing)
       // Smooth out the position of the pointer
       let penX = xFilter.filter(this.rmouseX(), millis());
       let penY = yFilter.filter(this.rmouseY(), millis());
@@ -761,11 +762,17 @@ class WaveCanvas {
       this.changed = false;
     }
     image(this.graphic, this.x, this.y);
-    image(this.demoGraphic, this.x, this.y);
+    // image(this.demoGraphic, this.x, this.y);
   }
 
   doStuff() {
     this.graphic.loadPixels();
+    if (this.lastPixels) {
+      if (this.lastPixels == this.graphic.pixels) {
+        console.log("pixels didn't chnage");
+      }
+    }
+    this.lastPixels = this.graphic.pixels;
     console.log("do stuff", this.w);
 
     let arr = new Array(floor(this.w)).fill(-2);
@@ -789,15 +796,19 @@ class WaveCanvas {
         arr[x] = ((2 * indexSum) / count / this.h - 1) * -1;
       }
     }
+    this.graphic.updatePixels();
+    // this.graphic.clear();
+    // this.graphic.updatePixels();
 
+    // this.graphic.updatePixels();
     arr = upsampleArray(arr, 4096, -2);
     this.timeDomain = arr;
     this.periodicWave = timeDomainToPeriodicWave(arr, -2);
-    console.log(this.timeDomain);
-    console.log(this.periodicWave);
-    this.graphic.updatePixels();
-    this.demoGraphic.clear();
-    this.demoGraphic.noStroke();
+    // console.log(this.timeDomain);
+    // console.log(this.periodicWave);
+    // this.graphic.updatePixels();
+    // this.demoGraphic.clear();
+    // this.demoGraphic.noStroke();
     // this.demoGraphic.fill(this.color, 50);
     for (let i = 0; i < arr.length; ++i) {
       let j = arr[i];
@@ -807,6 +818,7 @@ class WaveCanvas {
         this.graphic.ellipse(x, y, 5);
       }
     }
+    // this.graphic.updatePixels();
   }
 
   setPixel(x, y, col) {
@@ -839,7 +851,7 @@ class WaveCanvas {
         a += graphics.pixels[index + 3];
       }
     }
-    return color((r / d) * d, (g / d) * d, (b / d) * d, (a / d) * d);
+    return color(r / (d * d), g / (d * d), b / (d * d), a / (d * d));
   }
 }
 
@@ -1241,7 +1253,7 @@ class PitchCanvas {
         a += graphics.pixels[index + 3];
       }
     }
-    return color((r / d) * d, (g / d) * d, (b / d) * d, (a / d) * d);
+    return color(r / (d * d), g / (d * d), b / (d * d), a / (d * d));
   }
 }
 
