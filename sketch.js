@@ -858,8 +858,16 @@ class WaveUI {
     this.graphic.stroke(150, 150, 150);
     this.graphic.line(0, this.h / 2, this.w, this.h / 2);
     this.graphic.line(this.w / 2, 0, this.w / 2, this.h);
-    this.graphic.text("1", this.w / 2 + 10, 20);
-    this.graphic.text("-1", this.w / 2 + 10, this.h - 10);
+    this.graphic.noStroke();
+    this.graphic.textSize(14);
+    this.graphic.textAlign("left", "top");
+    this.graphic.text("1", this.w / 2 + 5, 0 + 5);
+    this.graphic.textAlign("left", "bottom");
+    this.graphic.text("-1", this.w / 2 + 5, this.h - 5);
+    this.graphic.textAlign("left", "bottom");
+    this.graphic.text("t = 0", 0 + 5, this.h / 2 - 5);
+    this.graphic.textAlign("right", "bottom");
+    this.graphic.text("t = λ", this.w - 5, this.h / 2 - 5);
   }
 
   draw() {
