@@ -1157,6 +1157,26 @@ class PitchCanvas {
   //   return buffer;
   // }
 
+  // ALTERNATIVE MIXING - SUM
+  getSoundBuffer() {
+    const buffer = new Float32Array(sampleRate * SECONDS).fill(0);
+
+    for (let i = 0; i < this.lines.length; ++i) {
+      const freqArray = this.lines[i].freqArray;
+      const wave = waves[this.lines[i].wave].canvas.timeDomain;
+      if (!wave) {
+        return undefined;
+      }
+      const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
+
+      for (let j = 0; j < buffer.length; ++j) {
+        buffer[j] += lineBuffer[j];
+      }
+    }
+
+    return buffer;
+  }
+
   play() {
     if (!this.isPlaying) {
       this.isPlaying = true;
@@ -1171,17 +1191,6 @@ class PitchCanvas {
         nowBuffering[i] = soundBuffer[i];
       }
 
-      // for (let i = 0; i < this.lines.length; ++i) {
-      //   const freqArray = this.lines[i].freqArray;
-      //   const wave = waves[this.lines[i].wave].canvas.timeDomain;
-      //   if (!wave) {
-      //     continue;
-      //   }
-      //   const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
-      //   for (let j = 0; j < buffer.length; ++j) {
-      //     nowBuffering[j] += lineBuffer[j];
-      //   }
-      // }
       const source = new AudioBufferSourceNode(audioContext);
       source.buffer = buffer;
       source.connect(audioContext.destination);
@@ -1199,18 +1208,7 @@ class PitchCanvas {
     if (!this.isSaving) {
       console.log("save");
       this.isSaving = true;
-      const buffer = this.getSoundBuffer(); //  new Float32Array(sampleRate * SECONDS).fill(0);
-      // for (let i = 0; i < this.lines.length; ++i) {
-      //   const freqArray = this.lines[i].freqArray;
-      //   const wave = waves[this.lines[i].wave].canvas.timeDomain;
-      //   if (!wave) {
-      //     continue;
-      //   }
-      //   const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
-      //   for (let j = 0; j < buffer.length; ++j) {
-      //     buffer[j] += lineBuffer[j];
-      //   }
-      // }
+      const buffer = this.getSoundBuffer();
       const wavBlob = arrayToWAV(buffer, sampleRate);
       downloadWAV(wavBlob, "audio.wav", () => {
         console.log("done saving");
