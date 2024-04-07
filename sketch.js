@@ -767,13 +767,7 @@ class WaveCanvas {
 
   doStuff() {
     this.graphic.loadPixels();
-    if (this.lastPixels) {
-      if (this.lastPixels == this.graphic.pixels) {
-        console.log("pixels didn't chnage");
-      }
-    }
-    this.lastPixels = this.graphic.pixels;
-    console.log("do stuff", this.w);
+    console.log("do stuff", this.w, this.d);
 
     let arr = new Array(floor(this.w)).fill(-2);
     for (let x = 0; x < this.w; ++x) {
@@ -796,7 +790,15 @@ class WaveCanvas {
         arr[x] = ((2 * indexSum) / count / this.h - 1) * -1;
       }
     }
-    this.graphic.updatePixels();
+
+    // fixes a bug where the pixel array in the original graphic no longer updates if the pixelDensity is 1
+    const newGraphic = createGraphics(this.w, this.h);
+    newGraphic.noStroke();
+    newGraphic.fill(this.color);
+    newGraphic.image(this.graphic, 0, 0);
+    this.graphic = newGraphic;
+
+    // this.graphic.updatePixels();
     // this.graphic.clear();
     // this.graphic.updatePixels();
 
@@ -810,7 +812,7 @@ class WaveCanvas {
     // this.demoGraphic.clear();
     // this.demoGraphic.noStroke();
     // this.demoGraphic.fill(this.color, 50);
-    for (let i = 0; i < arr.length; ++i) {
+    for (let i = 0; i < arr.length; i += 4) {
       let j = arr[i];
       if (j != -2) {
         let y = ((j * -1 + 1) * this.h) / 2;
