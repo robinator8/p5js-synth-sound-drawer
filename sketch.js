@@ -585,9 +585,10 @@ class ControlPanel {
     this.graphic.fill(255, 255, 255);
     this.graphic.textAlign("center", "center");
     this.graphic.textSize(50);
-    this.graphic.text("PLAY", (this.w * 0) / 3 + this.w / 6, this.h / 2);
-    this.graphic.text("UNDO", (this.w * 1) / 3 + this.w / 6, this.h / 2);
-    this.graphic.text("CLEAR", (this.w * 2) / 3 + this.w / 6, this.h / 2);
+    this.graphic.text("PLAY", (this.w * 0) / 4 + this.w / 8, this.h / 2);
+    this.graphic.text("UNDO", (this.w * 1) / 4 + this.w / 8, this.h / 2);
+    this.graphic.text("CLEAR", (this.w * 2) / 4 + this.w / 8, this.h / 2);
+    this.graphic.text("SAVE", (this.w * 3) / 4 + this.w / 8, this.h / 2);
   }
 
   draw() {
@@ -601,12 +602,14 @@ class ControlPanel {
       this.rmouseY() >= 0 &&
       this.rmouseY() <= this.h
     ) {
-      if (this.rmouseX() / this.w < 1 / 3) {
+      if (this.rmouseX() / this.w < 1 / 4) {
         return "play";
-      } else if (this.rmouseX() / this.w < 2 / 3) {
+      } else if (this.rmouseX() / this.w < 2 / 4) {
         return "undo";
-      } else {
+      } else if (this.rmouseX() / this.w < 3 / 4) {
         return "clear";
+      } else {
+        return "save";
       }
     }
     return false;
@@ -628,6 +631,8 @@ class ControlPanel {
       pitchCanvas.undo();
     } else if (action && action == "clear") {
       pitchCanvas.clear();
+    } else if (action && action == "save") {
+      pitchCanvas.save();
     }
   }
 }
@@ -1074,7 +1079,7 @@ class PitchCanvas {
       arr[i] = pctToHz(arr[i], 0);
     }
 
-    console.log("post-scaled-arr", arr);
+    // console.log("post-scaled-arr", arr);
     line.freqArray = upsampleArray(arr, SECONDS * sampleRate, 0);
   }
 
@@ -1120,6 +1125,30 @@ class PitchCanvas {
         source.disconnect(audioContext.destination);
         this.isPlaying = false;
       };
+    }
+  }
+
+  save() {
+    if (!this.isSaving) {
+      console.log("save");
+      this.isSaving = true;
+      const buffer = new Float32Array(sampleRate * SECONDS).fill(0);
+      for (let i = 0; i < this.lines.length; ++i) {
+        const freqArray = this.lines[i].freqArray;
+        const wave = waves[this.lines[i].wave].canvas.timeDomain;
+        if (!wave) {
+          continue;
+        }
+        const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
+        for (let j = 0; j < buffer.length; ++j) {
+          buffer[j] += lineBuffer[j];
+        }
+      }
+      const wavBlob = arrayToWAV(buffer, sampleRate);
+      downloadWAV(wavBlob, "audio.wav", () => {
+        console.log("done saving");
+        this.isSaving = false;
+      });
     }
   }
 
@@ -1342,13 +1371,13 @@ function timeDomainToPeriodicWave(input, ignore) {
   f.realTransform(out, input);
   f.completeSpectrum(out);
 
-  console.log("out", out);
-  console.log("in", input);
+  // console.log("out", out);
+  // console.log("in", input);
 
   const real = out.filter((_, i) => i % 2 == 0).map((c) => c / 4096);
   const imag = out.filter((_, i) => i % 2 == 1).map((c) => c / 4096);
 
-  console.log(real, imag);
+  // console.log(real, imag);
 
   let wave = new PeriodicWave(audioContext, {
     real: real,
@@ -1361,7 +1390,7 @@ function timeDomainToPeriodicWave(input, ignore) {
     imag: imag,
     disableNormalization: false,
   });
-  console.log(wave, wavenorm);
+  // console.log(wave, wavenorm);
   return wave;
 }
 
@@ -1438,13 +1467,55 @@ function hzToPct(freq) {
   return Math.log(freq / MIN_FREQ) / Math.log(MAX_FREQ / MIN_FREQ);
 }
 
-// function pctToHz(pct, ignore) {
-//   if (pct == ignore) {
-//     return 0;
-//   }
-//   return pct * 600 + 50;
-// }
+function arrayToWAV(buffer, sampleRate) {
+  const byteRate = sampleRate * 4; // 32-bit float, hence 4 bytes per sample
+  const blockAlign = 4; // Number of bytes for one sample including all channels.
+  const dataSize = buffer.length * 4; // Total number of bytes for data
+  const chunkSize = 36 + dataSize; // Size of the whole file in bytes without 8 bytes of 'RIFF' and size
 
-// function hzToPct(hz) {
-//   return (hz - 50) / 600;
-// }
+  const bufferArray = new ArrayBuffer(44 + dataSize); // 44 bytes for header, rest for data
+  const view = new DataView(bufferArray);
+
+  // Writing the RIFF header
+  writeString(view, 0, "RIFF");
+  view.setUint32(4, chunkSize, true); // ChunkSize
+  writeString(view, 8, "WAVE");
+  // fmt subchunk
+  writeString(view, 12, "fmt ");
+  view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 3, true); // Audio format 3 = IEEE float
+  view.setUint16(22, 1, true); // NumChannels
+  view.setUint32(24, sampleRate, true); // SampleRate
+  view.setUint32(28, byteRate, true); // ByteRate
+  view.setUint16(32, blockAlign, true); // BlockAlign
+  view.setUint16(34, 32, true); // BitsPerSample
+  // data subchunk
+  writeString(view, 36, "data");
+  view.setUint32(40, dataSize, true); // Subchunk2Size
+
+  // Writing the audio data
+  let offset = 44; // Skip header
+  for (let i = 0; i < buffer.length; i++, offset += 4) {
+    view.setFloat32(offset, buffer[i], true);
+  }
+
+  return new Blob([view], { type: "audio/wav" });
+
+  function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+}
+
+function downloadWAV(blob, filename = "audio.wav", callback) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+  setTimeout(callback, 100);
+}
