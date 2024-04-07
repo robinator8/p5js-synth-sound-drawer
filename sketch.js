@@ -933,7 +933,13 @@ class PitchCanvas {
   }
 
   undo() {
-    this.lines.pop();
+    if (!this.isUndoing) {
+      this.isUndoing = true;
+      this.lines.pop();
+      setTimeout(() => {
+        this.isUndoing = false;
+      }, 100);
+    }
   }
 
   draw() {
