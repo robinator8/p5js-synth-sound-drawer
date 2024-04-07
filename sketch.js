@@ -1101,6 +1101,42 @@ class PitchCanvas {
     }
   }
 
+  // ALTERNATIVE MIXING - AVERAGE
+  // getSoundBuffer() {
+  //   const buffer = new Float32Array(sampleRate * SECONDS).fill(0);
+  //   const lineBuffers = this.lines
+  //     .map((line) => {
+  //       const freqArray = line.freqArray;
+  //       const wave = waves[line.wave].canvas.timeDomain;
+  //       if (!wave) {
+  //         return undefined;
+  //       }
+  //       const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
+  //       return lineBuffer;
+  //     })
+  //     .filter((lineBuffer) => lineBuffer);
+
+  //   for (let i = 0; i < buffer.length; ++i) {
+  //     let active = 0;
+  //     for (let j = 0; j < lineBuffers.length; ++j) {
+  //       if (lineBuffers[j][i] > 0) {
+  //         active += 1;
+  //       }
+  //       buffer[i] += lineBuffers[j][i];
+  //     }
+
+  //     if (active > 1) {
+  //       buffer[i] /= active;
+  //     }
+
+  //     if (buffer[i] > 1) {
+  //       console.log("buffer[i]", buffer[i]);
+  //     }
+  //   }
+
+  //   return buffer;
+  // }
+
   play() {
     if (!this.isPlaying) {
       this.isPlaying = true;
@@ -1109,18 +1145,23 @@ class PitchCanvas {
         sampleRate: sampleRate,
         channelCount: 1,
       });
+      const soundBuffer = this.getSoundBuffer();
       const nowBuffering = buffer.getChannelData(0);
-      for (let i = 0; i < this.lines.length; ++i) {
-        const freqArray = this.lines[i].freqArray;
-        const wave = waves[this.lines[i].wave].canvas.timeDomain;
-        if (!wave) {
-          continue;
-        }
-        const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
-        for (let j = 0; j < buffer.length; ++j) {
-          nowBuffering[j] += lineBuffer[j];
-        }
+      for (let i = 0; i < soundBuffer.length; ++i) {
+        nowBuffering[i] = soundBuffer[i];
       }
+
+      // for (let i = 0; i < this.lines.length; ++i) {
+      //   const freqArray = this.lines[i].freqArray;
+      //   const wave = waves[this.lines[i].wave].canvas.timeDomain;
+      //   if (!wave) {
+      //     continue;
+      //   }
+      //   const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
+      //   for (let j = 0; j < buffer.length; ++j) {
+      //     nowBuffering[j] += lineBuffer[j];
+      //   }
+      // }
       const source = new AudioBufferSourceNode(audioContext);
       source.buffer = buffer;
       source.connect(audioContext.destination);
@@ -1138,18 +1179,18 @@ class PitchCanvas {
     if (!this.isSaving) {
       console.log("save");
       this.isSaving = true;
-      const buffer = new Float32Array(sampleRate * SECONDS).fill(0);
-      for (let i = 0; i < this.lines.length; ++i) {
-        const freqArray = this.lines[i].freqArray;
-        const wave = waves[this.lines[i].wave].canvas.timeDomain;
-        if (!wave) {
-          continue;
-        }
-        const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
-        for (let j = 0; j < buffer.length; ++j) {
-          buffer[j] += lineBuffer[j];
-        }
-      }
+      const buffer = this.getSoundBuffer(); //  new Float32Array(sampleRate * SECONDS).fill(0);
+      // for (let i = 0; i < this.lines.length; ++i) {
+      //   const freqArray = this.lines[i].freqArray;
+      //   const wave = waves[this.lines[i].wave].canvas.timeDomain;
+      //   if (!wave) {
+      //     continue;
+      //   }
+      //   const lineBuffer = generateVariableWave(freqArray, wave, sampleRate);
+      //   for (let j = 0; j < buffer.length; ++j) {
+      //     buffer[j] += lineBuffer[j];
+      //   }
+      // }
       const wavBlob = arrayToWAV(buffer, sampleRate);
       downloadWAV(wavBlob, "audio.wav", () => {
         console.log("done saving");
@@ -1210,10 +1251,17 @@ class PitchUI {
     this.lastNote = 0; // so it will init
   }
 
-  drawFreqLine(freq, color) {
+  drawFreqLine(freq, color, text) {
     this.graphic.stroke(color);
     const y = (1 - hzToPct(freq)) * this.h;
     this.graphic.line(0, y, this.w, y);
+    if (text) {
+      this.graphic.noStroke();
+      this.graphic.fill(color);
+      this.graphic.textSize(8);
+      this.graphic.textAlign("left", "bottom");
+      this.graphic.text(text, 10, y);
+    }
   }
 
   draw() {
@@ -1232,15 +1280,23 @@ class PitchUI {
     let note = piano1.playingNote || piano2.playingNote;
     this.lastNote = note;
     WHITE_NOTES.map((note) => {
-      note.freq.map((freq) => {
-        this.drawFreqLine(freq, color(150, 150, 150));
+      note.freq.map((freq, i) => {
+        this.drawFreqLine(
+          freq,
+          color(150, 150, 150),
+          "" + note.note + i + " / " + freq + "Hz",
+        );
       });
     });
 
     BLACK_NOTES.map((note) => {
       if (note) {
-        note.freq.map((freq) => {
-          this.drawFreqLine(freq, color(150, 150, 150));
+        note.freq.map((freq, i) => {
+          this.drawFreqLine(
+            freq,
+            color(150, 150, 150),
+            "" + note.note + i + " / " + freq + "Hz",
+          );
         });
       }
     });
@@ -1262,8 +1318,12 @@ class PitchUI {
     }
 
     if (note) {
-      note.freq.map((freq) => {
-        this.drawFreqLine(freq, color(0, 0, 0));
+      note.freq.map((freq, i) => {
+        this.drawFreqLine(
+          freq,
+          color(0, 0, 0),
+          "" + note.note + i + " / " + freq + "Hz",
+        );
       });
     }
 
