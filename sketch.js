@@ -1298,6 +1298,13 @@ class PitchUI {
     }
 
     let note = piano1.playingNote || piano2.playingNote;
+    let octave = null;
+    if (piano1.playingNote) {
+      octave = piano1.octave;
+    } else if (piano2.playingNote) {
+      octave = piano2.octave;
+    }
+
     this.lastNote = note;
     WHITE_NOTES.map((note) => {
       note.freq.map((freq, i) => {
@@ -1338,13 +1345,12 @@ class PitchUI {
     }
 
     if (note) {
-      note.freq.map((freq, i) => {
-        this.drawFreqLine(
-          freq,
-          color(0, 0, 0),
-          "" + note.note + i + " / " + freq + "Hz",
-        );
-      });
+      const freq = note.freq[octave];
+      this.drawFreqLine(
+        freq,
+        color(0, 0, 0),
+        "" + note.note + octave + " / " + freq + "Hz",
+      );
     }
 
     this.graphic.stroke(0, 0, 0);
